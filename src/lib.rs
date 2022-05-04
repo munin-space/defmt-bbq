@@ -179,8 +179,26 @@ pub use bbqueue::SplitGrantR;
 /// crate documentation.
 ///
 /// [Consumer docs]: https://docs.rs/bbqueue/latest/bbqueue/struct.Consumer.html
+#[cfg(not(feature = "external-bbq"))]
 pub fn init() -> Result<DefmtConsumer, Error> {
     let (prod, cons) = BBQ.try_split()?;
+
+    // NOTE: We are okay to treat the following as safe, as the BBQueue
+    // split operation is guaranteed to only return Ok once in a
+    // thread-safe manner.
+    unsafe {
+        BBQ_PRODUCER.uc_mu_fp.get().write(MaybeUninit::new(prod));
+    }
+
+    // MUST be done LAST
+    BBQ_STATE.store(logstate::INIT_NO_STORED_GRANT, Ordering::Release);
+
+    Ok(DefmtConsumer { cons })
+}
+
+#[cfg(feature = "external-bbq")]
+pub fn init(bbq: &'static mut BBBuffer<BUF_SIZE>) -> Result<DefmtConsumer, Error> {
+    let (prod, cons) = bbq.try_split()?;
 
     // NOTE: We are okay to treat the following as safe, as the BBQueue
     // split operation is guaranteed to only return Ok once in a
@@ -398,6 +416,7 @@ unsafe impl Sync for UnsafeGrantW {}
 // ----------------------------------------------------------------------------
 
 // The underlying byte storage containing the logs. Always valid
+#[cfg(not(feature = "external-bbq"))]
 static BBQ: BBBuffer<BUF_SIZE> = BBBuffer::new();
 
 // A tracking variable for ensuring state. Always valid.

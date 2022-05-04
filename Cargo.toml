@@ -36,5 +36,6 @@ default = [
     # When using the "raw" encoding, you MUST ensure that the buffer is
     # never overfilled, as it will NOT be possible to recover from this
     # error condition.
-    "defmt/encoding-rzcobs"
+    "defmt/encoding-rzcobs",
 ]
+external-bbq = []
